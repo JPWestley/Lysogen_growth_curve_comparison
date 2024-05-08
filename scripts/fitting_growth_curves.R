@@ -8,6 +8,7 @@ library(tidyverse)
 library(growthrates)
 library(tibble)
 library(emmeans)
+library(plyr)
 
 # 1.0 Load and prepare data ####
 
@@ -55,12 +56,36 @@ p <- ggplot(grates, aes(x=strain, y=mumax)) +
   ylim(0,0.1)
 p
 
-# 1.4 Testing if there is a difference between lysogens in max growth rate ####
+# 1.4 Averaging across technical replicates ####
 
 grates$logmumax <- log(grates$mumax)
 
-m1 <- glm(logmumax~strain,data = grates)
-m2 <- glm(logmumax~1,data = grates)
+grates$curveID <- NULL
+
+grates <- grates %>%
+  mutate(curve = paste(strain,plate,sep="_"))
+
+grates$curve <- as.factor(grates$curve)
+
+grates_means <- grates %>%
+  select(curve,strain) %>%
+  unique()
+
+means <- ddply(grates, .(curve), summarize, logmumax=mean(logmumax),mumax=mean(mumax),lag=mean(lag),y0=mean(y0),y0_lm=mean(y0_lm))
+
+grates_means <- left_join(grates_means,means)
+
+p2 <- ggplot(grates_means, aes(x=strain, y=mumax)) + 
+  geom_boxplot() +
+  ylim(0,0.1) +
+  theme_bw()
+p2
+
+
+# 1.5 Testing if there is a difference between lysogens in max growth rate ####
+
+m1 <- glm(logmumax~strain,data = grates_means)
+m2 <- glm(logmumax~1,data = grates_means)
 
 anova(m1,m2,test="Chisq")
 
@@ -71,7 +96,21 @@ plot(m1)
 emm_m1 <- emmeans(m1, specs = pairwise ~ strain)
 emm_m1$contrasts
 
-gratesnostaf <- grates %>%
+contra <- as.data.frame(emm_m1$contrasts)
+
+contra <- contra %>%
+  filter(p.value < 0.1)
+
+
+contra_cor <- contra %>%
+  mutate(cor.p = p.value*91) %>%
+  filter(cor.p < 0.05)
+
+
+
+# 1.6 removing staph from the model ####
+
+gratesnostaf <- grates_means %>%
   filter(strain!="S.aureus")
 
 m1 <- glm(logmumax~strain,data = gratesnostaf )
@@ -89,5 +128,4 @@ emm_m1$contrasts
 contra <- as.data.frame(emm_m1$contrasts)
 
 contra <- contra %>%
-  mutate(cor.p = p.value*91) %>%
-  filter(cor.p < 0.05)
+  filter(p.value < 0.05)
