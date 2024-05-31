@@ -91,7 +91,7 @@ anova(m1,m2,test="Chisq")
 
 summary(m1)
 
-plot(m1)
+#plot(m1)
 
 emm_m1 <- emmeans(m1, specs = pairwise ~ strain)
 emm_m1$contrasts
@@ -120,7 +120,7 @@ anova(m1,m2,test="Chisq")
 
 summary(m1)
 
-plot(m1)
+#plot(m1)
 
 emm_m1 <- emmeans(m1, specs = pairwise ~ strain)
 emm_m1$contrasts
