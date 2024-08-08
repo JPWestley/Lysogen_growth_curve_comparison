@@ -9,6 +9,7 @@ library(growthrates)
 library(tibble)
 library(emmeans)
 library(plyr)
+library(multcomp)
 
 # 1.0 Load and prepare data ####
 
@@ -82,7 +83,21 @@ p2 <- ggplot(grates_means, aes(x=strain, y=mumax)) +
 p2
 
 
-# 1.5 Testing if there is a difference between lysogens in max growth rate ####
+# 2.0 Testing if there is a difference between lysogens in max growth rate ####
+
+data$strain <- as.factor(data$strain)
+
+grates_means <- grates_means %>%
+  mutate(strain = case_when(
+    strain == "PA14WT" ~ ("1_PA14WT"),
+    TRUE ~ strain 
+  ))
+data$strain <- as.factor(data$strain)
+
+grates_means$strain <- relevel(grates_means$strain, ref = "PA14WT")
+str(data)
+str
+str(data)
 
 m1 <- glm(logmumax~strain,data = grates_means)
 m2 <- glm(logmumax~1,data = grates_means)
@@ -91,7 +106,16 @@ anova(m1,m2,test="Chisq")
 
 summary(m1)
 
-#plot(m1)
+plot(m1)
+
+# 2.1 post hoc testing ####
+
+# comparing only lysogens to wild type
+
+dunnett_test <- glht(m1, linfct = mcp(strain = "Dunnett"))
+summary(dunnett_test)
+
+# all pairwise comparisons
 
 emm_m1 <- emmeans(m1, specs = pairwise ~ strain)
 emm_m1$contrasts
@@ -106,9 +130,7 @@ contra_cor <- contra %>%
   mutate(cor.p = p.value*91) %>%
   filter(cor.p < 0.05)
 
-
-
-# 1.6 removing staph from the model ####
+# 2.2 removing staph from the model ####
 
 gratesnostaf <- grates_means %>%
   filter(strain!="S.aureus")
@@ -120,7 +142,16 @@ anova(m1,m2,test="Chisq")
 
 summary(m1)
 
-#plot(m1)
+plot(m1)
+
+# 2.3 post-hoc testing with staph removed
+
+# comparing only lysogens to wild type
+
+dunnett_test <- glht(m1, linfct = mcp(strain = "Dunnett"))
+summary(dunnett_test)
+
+# all pairwise comparisons
 
 emm_m1 <- emmeans(m1, specs = pairwise ~ strain)
 emm_m1$contrasts
@@ -128,4 +159,4 @@ emm_m1$contrasts
 contra <- as.data.frame(emm_m1$contrasts)
 
 contra <- contra %>%
-  filter(p.value < 0.05)
+  filter(p.value < 0.1)
